@@ -42,6 +42,7 @@ temp/
 .env
 .env.*
 !.env.example
+.config/config.yaml
 
 # frontend
 frontend/node_modules/
@@ -63,8 +64,11 @@ lerna-debug.log*
 .vscode/
 .idea/
 *.swp
+.trae/
+
 
 # test / coverage
 coverage.out
 coverage.html
 *.coverprofile
+
