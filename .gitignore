@@ -30,12 +30,25 @@ Thumbs.db
 *.cert
 *.key
 *.log
+*.pid
+*.tmp
+*.temp
 bin/
+logs/
+tmp/
+temp/
+
+# env
+.env
+.env.*
+!.env.example
 
 # frontend
 frontend/node_modules/
 frontend/dist/
 frontend/dist-ssr/
+frontend/.vite/
+frontend/.cache/
 frontend/logs/
 frontend/*.local
 frontend/.env.local
@@ -50,3 +63,8 @@ lerna-debug.log*
 .vscode/
 .idea/
 *.swp
+
+# test / coverage
+coverage.out
+coverage.html
+*.coverprofile
