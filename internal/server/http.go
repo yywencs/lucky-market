@@ -4,6 +4,7 @@ import (
 	v1 "big-market-kratos/api/bigmarket/v1"
 	"big-market-kratos/internal/conf"
 	"big-market-kratos/internal/dcc"
+	"big-market-kratos/internal/server/middleware"
 	"big-market-kratos/internal/service"
 	stdhttp "net/http"
 
@@ -18,6 +19,7 @@ func NewHTTPServer(c *conf.Server, strategy *service.StrategyService, activity *
 		http.Filter(corsFilter()),
 		http.Middleware(
 			recovery.Recovery(),
+			middleware.MetricsMiddleware(),
 			// middleware.DegradeMiddleware(dcc),
 		),
 	}

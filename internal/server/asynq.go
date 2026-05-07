@@ -4,12 +4,14 @@ package server
 import (
 	"big-market-kratos/pkg/logger"
 	"context"
+	"errors"
 	"fmt"
 
 	"big-market-kratos/internal/biz/activity"
 	"big-market-kratos/internal/biz/task"
 	"big-market-kratos/internal/conf"
 	"big-market-kratos/internal/job" // 假设你把 Job 放在了 internal/job 目录下
+	"big-market-kratos/internal/metrics"
 
 	"github.com/go-kratos/kratos/v2/transport"
 	"github.com/hibiken/asynq"
@@ -54,9 +56,9 @@ func NewAsynqServer(
 	mux := asynq.NewServeMux()
 	scheduler := asynq.NewScheduler(redisOpt, &asynq.SchedulerOpts{})
 
-	mux.HandleFunc(activity.TaskTypeActivitySkuStockConsume, skuStockJob.ProcessTask)
-	mux.HandleFunc(activity.TaskTypeActivityStateSync, stateSyncJob.ProcessTask)
-	mux.HandleFunc(task.TaskTypeStrategyAwardStockConsume, strategyAwardStockJob.ProcessTask)
+	mux.HandleFunc(activity.TaskTypeActivitySkuStockConsume, wrapAsynqHandler(activity.TaskTypeActivitySkuStockConsume, skuStockJob.ProcessTask))
+	mux.HandleFunc(activity.TaskTypeActivityStateSync, wrapAsynqHandler(activity.TaskTypeActivityStateSync, stateSyncJob.ProcessTask))
+	mux.HandleFunc(task.TaskTypeStrategyAwardStockConsume, wrapAsynqHandler(task.TaskTypeStrategyAwardStockConsume, strategyAwardStockJob.ProcessTask))
 
 	// 注册定时任务
 	if _, err := scheduler.Register("@every 5s", asynq.NewTask(activity.TaskTypeActivityStateSync, nil)); err != nil {
@@ -88,4 +90,19 @@ func (s *AsynqServer) Stop(ctx context.Context) error {
 	s.scheduler.Shutdown()
 	s.server.Shutdown()
 	return nil
+}
+
+func wrapAsynqHandler(taskType string, handler func(context.Context, *asynq.Task) error) func(context.Context, *asynq.Task) error {
+	return func(ctx context.Context, task *asynq.Task) error {
+		err := handler(ctx, task)
+		result := "success"
+		if err != nil {
+			result = "error"
+			if errors.Is(err, asynq.SkipRetry) {
+				result = "skip_retry"
+			}
+		}
+		metrics.IncAsynqTask(taskType, result)
+		return err
+	}
 }

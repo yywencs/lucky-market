@@ -1,8 +1,11 @@
 package strategy
 
 import (
+	"big-market-kratos/internal/metrics"
 	"big-market-kratos/pkg/logger"
 	"context"
+	"errors"
+	"time"
 )
 
 type StrategyUsecase struct {
@@ -25,7 +28,13 @@ func NewStrategyUsecase(repo Repo) *StrategyUsecase {
 }
 
 // PerformRaffle 执行抽奖方法
-func (s *StrategyUsecase) PerformRaffle(ctx context.Context, factor *RaffleFactor) (*RaffleAward, error) {
+func (s *StrategyUsecase) PerformRaffle(ctx context.Context, factor *RaffleFactor) (award *RaffleAward, err error) {
+	start := time.Now()
+	defer func() {
+		metrics.IncRaffle(factor.ActivityID, factor.StrategyID, raffleResultFromErr(err))
+		metrics.ObserveRaffleDuration(factor.ActivityID, factor.StrategyID, time.Since(start))
+	}()
+
 	// 1. 执行抽奖逻辑链（前置规则：黑名单、权重等）
 	strategyAwardBefore, err := s.raffle.raffleLogicChain(ctx, factor)
 	if err != nil {
@@ -51,6 +60,19 @@ func (s *StrategyUsecase) PerformRaffle(ctx context.Context, factor *RaffleFacto
 	}
 
 	return s.buildRaffleAward(ctx, factor.StrategyID, strategyAwardAfter.AwardID)
+}
+
+func raffleResultFromErr(err error) string {
+	switch {
+	case err == nil:
+		return "success"
+	case errors.Is(err, ErrBlackListUser):
+		return "blacklist"
+	case errors.Is(err, ErrRuleTreeInvalid):
+		return "rule_invalid"
+	default:
+		return "error"
+	}
 }
 
 // AssembleLotteryStrategy 装配策略（预热缓存）

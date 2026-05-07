@@ -1,7 +1,9 @@
 package activity
 
 import (
+	"big-market-kratos/internal/metrics"
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"time"
@@ -67,7 +69,11 @@ func (s *ActivityPartakeUsecase) SaveOrderRecord(ctx context.Context, aggregate 
 	return s.repo.SaveCreatePartakeOrderAggregate(ctx, aggregate)
 }
 
-func (s *ActivityPartakeUsecase) doFilterAccount(ctx context.Context, userID string, activityID int64, currentTime time.Time) (*CreatePartakeOrder, error) {
+func (s *ActivityPartakeUsecase) doFilterAccount(ctx context.Context, userID string, activityID int64, currentTime time.Time) (aggregate *CreatePartakeOrder, err error) {
+	defer func() {
+		metrics.IncActivityQuota(activityID, quotaCheckResultFromErr(err))
+	}()
+
 	// 检验用户是否已参与活动
 	account, err := s.repo.QueryActivityAccount(ctx, userID, activityID)
 	if err != nil {
@@ -128,6 +134,21 @@ func (s *ActivityPartakeUsecase) doFilterAccount(ctx context.Context, userID str
 		IsExistAccountDay:    isExistAccountDay,
 		IsExistAccountMonth:  isExistAccountMonth,
 	}, nil
+}
+
+func quotaCheckResultFromErr(err error) string {
+	switch {
+	case err == nil:
+		return "success"
+	case errors.Is(err, ErrActivityQuotaError):
+		return "total_quota_exhausted"
+	case errors.Is(err, ErrActivityAccountDayCountSurplusNotEnough):
+		return "day_quota_exhausted"
+	case errors.Is(err, ErrActivityAccountMonthCountSurplusNotEnough):
+		return "month_quota_exhausted"
+	default:
+		return "error"
+	}
 }
 
 func (s *ActivityPartakeUsecase) buildUserRaffleOrder(userID string, activity *Activity, currentTime time.Time) *UserRaffleOrder {

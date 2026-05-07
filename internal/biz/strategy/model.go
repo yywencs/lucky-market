@@ -222,6 +222,7 @@ type Award struct {
 
 // RaffleFactor 抽奖因子
 type RaffleFactor struct {
+	ActivityID int64
 	UserID     string
 	StrategyID int64
 }

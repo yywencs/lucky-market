@@ -3,6 +3,7 @@ package data
 import (
 	"big-market-kratos/internal/biz/award"
 	"big-market-kratos/internal/data/po"
+	"big-market-kratos/internal/metrics"
 	"big-market-kratos/pkg/cache"
 	"big-market-kratos/pkg/logger"
 	"context"
@@ -29,14 +30,21 @@ func NewUserAwardRecordRepository(db *DBRouter, redis *cache.Cache, publisher *P
 }
 
 func (r *UserAwardRecord) SaveUserAwardRecord(ctx context.Context, aggregate *award.UserAwardTaskInfo) error {
+	result := "success"
+	defer func() {
+		metrics.IncAward(aggregate.UserAwardRecord.AwardID, result)
+	}()
+
 	userAwardRecordPO := convertToUserAwardRecordPO(aggregate.UserAwardRecord)
 	taskPO, taskErr := convertToTaskPO(aggregate.Task)
 	if taskErr != nil {
+		result = "payload_marshal_error"
 		return taskErr
 	}
 
 	// Calculate DB suffix based on UserID
 	db, tableSuffix := r.routerDB.DBStrategy(aggregate.UserAwardRecord.UserID)
+	duplicate := false
 
 	// 1. Transaction
 	txnErr := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -44,6 +52,7 @@ func (r *UserAwardRecord) SaveUserAwardRecord(ctx context.Context, aggregate *aw
 		if createAwardErr := tx.Table("user_award_record_" + tableSuffix).Create(userAwardRecordPO).Error; createAwardErr != nil {
 			// Handle duplicate key error (idempotency)
 			if errors.Is(createAwardErr, gorm.ErrDuplicatedKey) || strings.Contains(createAwardErr.Error(), "Duplicate entry") {
+				duplicate = true
 				return nil
 			}
 			return createAwardErr
@@ -66,7 +75,11 @@ func (r *UserAwardRecord) SaveUserAwardRecord(ctx context.Context, aggregate *aw
 	})
 
 	if txnErr != nil {
+		result = "error"
 		return txnErr
+	}
+	if duplicate {
+		result = "duplicate"
 	}
 
 	pendingOrderKey := GetPendingRaffleOrderKey(aggregate.UserAwardRecord.ActivityID, aggregate.UserAwardRecord.UserID)

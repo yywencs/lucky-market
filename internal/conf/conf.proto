@@ -12,6 +12,7 @@ message Bootstrap {
   Asynq asynq = 4;
   Log log = 5;
   Dcc dcc = 6;
+  Monitor monitor = 7;
 }
 
 message Server {
@@ -113,4 +114,10 @@ message Log {
   int32 max_backups = 4;
   int32 max_age = 5;
   bool compress = 6;
+}
+
+message Monitor {
+  bool enable = 1;
+  string addr = 2;
+  string path = 3;
 }

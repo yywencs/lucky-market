@@ -3,6 +3,7 @@ package data
 import (
 	"big-market-kratos/internal/biz/activity"
 	"big-market-kratos/internal/data/po"
+	"big-market-kratos/internal/metrics"
 	"big-market-kratos/pkg/cache"
 	"big-market-kratos/pkg/logger"
 	"big-market-kratos/pkg/rabbitmq"
@@ -510,6 +511,7 @@ func (d *Repository) SubtractionActivitySkuStock(ctx context.Context, skuID int6
 
 	result, err := d.redis.Eval(ctx, script, []string{stockKey, resultKey}, userID, strconv.FormatInt(skuID, 10), strconv.FormatInt(time.Now().Unix(), 10), pointsResult)
 	if err != nil {
+		metrics.IncStockConsume(activityID, skuID, "error")
 		return nil, err
 	}
 
@@ -521,11 +523,13 @@ func (d *Repository) SubtractionActivitySkuStock(ctx context.Context, skuID int6
 	// 解析JSON结果
 	var activityResult activity.ActivityResult
 	if err := json.Unmarshal([]byte(resultJSON), &activityResult); err != nil {
+		metrics.IncStockConsume(activityID, skuID, "error")
 		return nil, err
 	}
 
 	switch status {
 	case -1:
+		metrics.IncStockConsume(activityID, skuID, "not_initialized")
 		return nil, errors.New("库存未初始化")
 	case 0:
 		// 库存刚好耗尽，发送MQ消息
@@ -533,12 +537,16 @@ func (d *Repository) SubtractionActivitySkuStock(ctx context.Context, skuID int6
 		if err := d.stockZeroPublisher.PublishStockZero(ctx, stockZeroEvent); err != nil {
 			logger.Error("发送库存耗尽MQ消息失败", "skuID", skuID, "error", err)
 		}
+		metrics.IncStockConsume(activityID, skuID, "success")
 		return &activityResult, nil
 	case 1:
+		metrics.IncStockConsume(activityID, skuID, "success")
 		return &activityResult, nil // 抽奖成功
 	case 2:
+		metrics.IncStockConsume(activityID, skuID, "credit")
 		return &activityResult, nil // 返回积分
 	default:
+		metrics.IncStockConsume(activityID, skuID, "unknown")
 		return nil, errors.New("未知结果")
 	}
 }

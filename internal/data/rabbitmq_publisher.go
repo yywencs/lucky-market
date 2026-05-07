@@ -3,6 +3,7 @@ package data
 import (
 	"big-market-kratos/internal/biz/activity"
 	"big-market-kratos/internal/conf"
+	"big-market-kratos/internal/metrics"
 	"big-market-kratos/pkg/rabbitmq"
 	"context"
 	"encoding/json"
@@ -41,6 +42,7 @@ func (p *RabbitMQPublisher) Publish(ctx context.Context, topic string, event *ra
 	if !ok {
 		if err := p.channel.ExchangeDeclare(topic, "fanout", true, false, false, false, nil); err != nil {
 			p.mu.Unlock()
+			metrics.IncRabbitMQPublish(topic, "exchange_declare_error")
 			return fmt.Errorf("exchange declare error: %w", err)
 		}
 		p.declaredExchanges[topic] = struct{}{}
@@ -49,15 +51,22 @@ func (p *RabbitMQPublisher) Publish(ctx context.Context, topic string, event *ra
 
 	body, err := json.Marshal(event)
 	if err != nil {
+		metrics.IncRabbitMQPublish(topic, "marshal_error")
 		return fmt.Errorf("marshal event error: %w", err)
 	}
 
-	return p.channel.PublishWithContext(ctx, topic, "", false, false, amqp.Publishing{
+	if err := p.channel.PublishWithContext(ctx, topic, "", false, false, amqp.Publishing{
 		DeliveryMode: amqp.Persistent,
 		ContentType:  "application/json",
 		Body:         body,
 		Timestamp:    time.Now(),
-	})
+	}); err != nil {
+		metrics.IncRabbitMQPublish(topic, "publish_error")
+		return err
+	}
+
+	metrics.IncRabbitMQPublish(topic, "success")
+	return nil
 }
 
 type Publisher struct {

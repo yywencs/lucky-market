@@ -72,6 +72,7 @@ func (s *ActivityService) Draw(ctx context.Context, req *v1.DrawRequest) (*v1.Dr
 	userRaffleOrder := createPartakeOrderAggregate.UserRaffleOrder
 
 	raffleAward, err := s.strategyUsecase.PerformRaffle(ctx, &strategy.RaffleFactor{
+		ActivityID: req.GetActivityId(),
 		UserID:     req.GetUserId(),
 		StrategyID: userRaffleOrder.StrategyID,
 	})
