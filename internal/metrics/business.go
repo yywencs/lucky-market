@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"database/sql"
 	"strconv"
 	"time"
 )
@@ -31,6 +32,19 @@ func IncRabbitMQPublish(topic, result string) {
 
 func IncAsynqTask(taskType, result string) {
 	AsynqTaskTotal.WithLabelValues(normalizeLabel(taskType), normalizeLabel(result)).Inc()
+}
+
+func SetMySQLStats(dbName, role string, stats sql.DBStats) {
+	dbName = normalizeLabel(dbName)
+	role = normalizeLabel(role)
+
+	MySQLOpenConnections.WithLabelValues(dbName, role).Set(float64(stats.OpenConnections))
+	MySQLInUse.WithLabelValues(dbName, role).Set(float64(stats.InUse))
+	MySQLIdle.WithLabelValues(dbName, role).Set(float64(stats.Idle))
+	MySQLWaitCount.WithLabelValues(dbName, role).Set(float64(stats.WaitCount))
+	MySQLWaitDurationSeconds.WithLabelValues(dbName, role).Set(stats.WaitDuration.Seconds())
+	MySQLMaxIdleClosedTotal.WithLabelValues(dbName, role).Set(float64(stats.MaxIdleClosed))
+	MySQLMaxLifetimeClosedTotal.WithLabelValues(dbName, role).Set(float64(stats.MaxLifetimeClosed))
 }
 
 func int64Label(v int64) string {

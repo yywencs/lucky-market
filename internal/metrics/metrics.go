@@ -94,6 +94,76 @@ var (
 		},
 		[]string{"task_type", "result"},
 	)
+
+	MySQLOpenConnections = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "bigmarket",
+			Subsystem: "mysql",
+			Name:      "open_connections",
+			Help:      "Current number of open MySQL connections.",
+		},
+		[]string{"db_name", "role"},
+	)
+
+	MySQLInUse = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "bigmarket",
+			Subsystem: "mysql",
+			Name:      "in_use",
+			Help:      "Current number of in-use MySQL connections.",
+		},
+		[]string{"db_name", "role"},
+	)
+
+	MySQLIdle = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "bigmarket",
+			Subsystem: "mysql",
+			Name:      "idle",
+			Help:      "Current number of idle MySQL connections.",
+		},
+		[]string{"db_name", "role"},
+	)
+
+	MySQLWaitCount = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "bigmarket",
+			Subsystem: "mysql",
+			Name:      "wait_count",
+			Help:      "Current sampled MySQL wait count.",
+		},
+		[]string{"db_name", "role"},
+	)
+
+	MySQLWaitDurationSeconds = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "bigmarket",
+			Subsystem: "mysql",
+			Name:      "wait_duration_seconds",
+			Help:      "Current sampled MySQL wait duration in seconds.",
+		},
+		[]string{"db_name", "role"},
+	)
+
+	MySQLMaxIdleClosedTotal = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "bigmarket",
+			Subsystem: "mysql",
+			Name:      "max_idle_closed_total",
+			Help:      "Current sampled MySQL max idle closed total.",
+		},
+		[]string{"db_name", "role"},
+	)
+
+	MySQLMaxLifetimeClosedTotal = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "bigmarket",
+			Subsystem: "mysql",
+			Name:      "max_lifetime_closed_total",
+			Help:      "Current sampled MySQL max lifetime closed total.",
+		},
+		[]string{"db_name", "role"},
+	)
 )
 
 func init() {
@@ -107,5 +177,12 @@ func init() {
 		StockConsumeTotal,
 		RabbitMQPublishTotal,
 		AsynqTaskTotal,
+		MySQLOpenConnections,
+		MySQLInUse,
+		MySQLIdle,
+		MySQLWaitCount,
+		MySQLWaitDurationSeconds,
+		MySQLMaxIdleClosedTotal,
+		MySQLMaxLifetimeClosedTotal,
 	)
 }
