@@ -1,9 +1,11 @@
 package data
 
 import (
-	"big-market-kratos/internal/conf"
+	confpb "big-market-kratos/internal/conf"
+	"big-market-kratos/internal/metrics"
 	"big-market-kratos/pkg/cache"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"hash/crc32"
@@ -21,7 +23,13 @@ import (
 
 // =======================Mysql ==========================
 
-func NewDB(conf *conf.Data_Mysql) *gorm.DB {
+func NewDB(conf *confpb.Data_Mysql) *gorm.DB {
+	db, sqlDB := openMySQLDB(conf)
+	startMySQLStatsCollector(sqlDB, "default", "primary")
+	return db
+}
+
+func openMySQLDB(conf *confpb.Data_Mysql) (*gorm.DB, *sql.DB) {
 	// 1. 配置 GORM 参数 (例如日志级别)
 	gormConfig := &gorm.Config{
 		// 建议开发环境用 Info，生产环境用 Error 或 Warn
@@ -67,7 +75,27 @@ func NewDB(conf *conf.Data_Mysql) *gorm.DB {
 		sqlDB.SetConnMaxIdleTime(conf.MaxIdleTime.AsDuration())
 	}
 
-	return db
+	return db, sqlDB
+}
+
+func startMySQLStatsCollector(sqlDB *sql.DB, dbName, role string) {
+	go func() {
+		collectMySQLStats(sqlDB, dbName, role)
+
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			collectMySQLStats(sqlDB, dbName, role)
+		}
+	}()
+}
+
+func collectMySQLStats(sqlDB *sql.DB, dbName, role string) {
+	if sqlDB == nil {
+		return
+	}
+	metrics.SetMySQLStats(dbName, role, sqlDB.Stats())
 }
 
 // =======================DB Router ==========================
@@ -79,7 +107,7 @@ type DBRouter struct {
 	tbCount int                 // 分表数量
 }
 
-func NewDBRouter(conf *conf.Data_Mysql) *DBRouter {
+func NewDBRouter(conf *confpb.Data_Mysql) *DBRouter {
 	dbCount := int(conf.DbCount)
 	tbCount := int(conf.TbCount)
 	// 1. 初始化结构体，存入配置
@@ -95,11 +123,19 @@ func NewDBRouter(conf *conf.Data_Mysql) *DBRouter {
 		dbName := fmt.Sprintf("_%02d", i)
 		dsn := fmt.Sprintf(conf.Dsn, dbName)
 
-		subConf := *conf
-		subConf.Dsn = dsn
+		subConf := &confpb.Data_Mysql{
+			Dsn:          dsn,
+			MaxOpenConns: conf.MaxOpenConns,
+			MaxIdleConns: conf.MaxIdleConns,
+			MaxLifeTime:  conf.MaxLifeTime,
+			MaxIdleTime:  conf.MaxIdleTime,
+			DbCount:      conf.DbCount,
+			TbCount:      conf.TbCount,
+		}
 
 		// 存入 Map: Key = "01", "02" (这样路由时比较好拼)
-		dbRouter.dbMap[fmt.Sprintf("%02d", i)] = NewDB(&subConf)
+		db, _ := openMySQLDB(subConf)
+		dbRouter.dbMap[fmt.Sprintf("%02d", i)] = db
 		fmt.Printf("DBRouter: %s\n", dsn)
 	}
 	return dbRouter
@@ -146,7 +182,7 @@ func (r *DBRouter) GetDBCount() int {
 }
 
 // =======================Redis ==========================
-func NewRedisClient(cfg *conf.Data_Redis) *cache.Cache {
+func NewRedisClient(cfg *confpb.Data_Redis) *cache.Cache {
 	// 1. 组装 Options
 	opts := &redis.Options{
 		// 网络地址: host:port
@@ -181,6 +217,7 @@ func NewRedisClient(cfg *conf.Data_Redis) *cache.Cache {
 	}
 
 	client := redis.NewClient(opts)
+	client.AddHook(newRedisMetricsHook())
 
 	// 使用一个较短的上下文超时来检测，避免启动时卡死
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -205,7 +242,7 @@ func NewRedisClient(cfg *conf.Data_Redis) *cache.Cache {
 }
 
 // =======================RabbitMQ ==========================
-func NewConnection(conf *conf.RabbitMQ) (*amqp.Connection, error) {
+func NewConnection(conf *confpb.RabbitMQ) (*amqp.Connection, error) {
 	connStr := fmt.Sprintf("amqp://%s:%s@%s:%d/",
 		conf.Username,
 		conf.Password,
@@ -217,7 +254,7 @@ func NewConnection(conf *conf.RabbitMQ) (*amqp.Connection, error) {
 
 // =======================Asynq ==========================
 
-func NewAsynqClient(cfg *conf.Asynq) *asynq.Client {
+func NewAsynqClient(cfg *confpb.Asynq) *asynq.Client {
 	return asynq.NewClient(asynq.RedisClientOpt{
 		Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
 		DB:       int(cfg.Redis.Db),
@@ -226,7 +263,7 @@ func NewAsynqClient(cfg *conf.Asynq) *asynq.Client {
 	})
 }
 
-func NewAsynqInspector(cfg *conf.Asynq) *asynq.Inspector {
+func NewAsynqInspector(cfg *confpb.Asynq) *asynq.Inspector {
 	return asynq.NewInspector(asynq.RedisClientOpt{
 		Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
 		DB:       int(cfg.Redis.Db),
@@ -254,11 +291,11 @@ var ProviderSet = wire.NewSet(
 	NewAsynqInspector,
 )
 
-func NewMysqlConfig(c *conf.Data) *conf.Data_Mysql {
+func NewMysqlConfig(c *confpb.Data) *confpb.Data_Mysql {
 	return c.Mysql
 }
 
-func NewRedisConfig(c *conf.Data) *conf.Data_Redis {
+func NewRedisConfig(c *confpb.Data) *confpb.Data_Redis {
 	return c.Redis
 }
 

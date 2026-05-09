@@ -85,6 +85,27 @@ var (
 		[]string{"topic", "result"},
 	)
 
+	RedisOpsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "bigmarket",
+			Subsystem: "redis",
+			Name:      "ops_total",
+			Help:      "Total Redis operations.",
+		},
+		[]string{"cmd", "result"},
+	)
+
+	RedisOpDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "bigmarket",
+			Subsystem: "redis",
+			Name:      "op_duration_seconds",
+			Help:      "Redis operation latency.",
+			Buckets:   prometheus.DefBuckets,
+		},
+		[]string{"cmd"},
+	)
+
 	AsynqTaskTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "bigmarket",
@@ -93,6 +114,47 @@ var (
 			Help:      "Total Asynq task execution results.",
 		},
 		[]string{"task_type", "result"},
+	)
+
+	AsynqTaskDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: "bigmarket",
+			Subsystem: "asynq",
+			Name:      "task_duration_seconds",
+			Help:      "Asynq task execution latency.",
+			Buckets:   prometheus.DefBuckets,
+		},
+		[]string{"task_type"},
+	)
+
+	AsynqQueueSize = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "bigmarket",
+			Subsystem: "asynq",
+			Name:      "queue_size",
+			Help:      "Current total Asynq queue size.",
+		},
+		[]string{"queue"},
+	)
+
+	AsynqRetrySize = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "bigmarket",
+			Subsystem: "asynq",
+			Name:      "retry_size",
+			Help:      "Current Asynq retry queue size.",
+		},
+		[]string{"queue"},
+	)
+
+	AsynqScheduledSize = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "bigmarket",
+			Subsystem: "asynq",
+			Name:      "scheduled_size",
+			Help:      "Current Asynq scheduled queue size.",
+		},
+		[]string{"queue"},
 	)
 
 	MySQLOpenConnections = prometheus.NewGaugeVec(
@@ -176,7 +238,13 @@ func init() {
 		AwardTotal,
 		StockConsumeTotal,
 		RabbitMQPublishTotal,
+		RedisOpsTotal,
+		RedisOpDuration,
 		AsynqTaskTotal,
+		AsynqTaskDuration,
+		AsynqQueueSize,
+		AsynqRetrySize,
+		AsynqScheduledSize,
 		MySQLOpenConnections,
 		MySQLInUse,
 		MySQLIdle,
