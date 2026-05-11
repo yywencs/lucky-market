@@ -22,6 +22,6 @@ import (
 )
 
 // wireApp init kratos application.
-func wireApp(*conf.Server, *conf.Data, *conf.RabbitMQ, *conf.Asynq, log.Logger, dcc.ConfigGetter) (*kratos.App, func(), error) {
+func wireApp(*conf.Server, *conf.Data, *conf.RabbitMQ, *conf.Asynq, *conf.Monitor, log.Logger, dcc.ConfigGetter) (*kratos.App, func(), error) {
 	panic(wire.Build(server.ProviderSet, data.ProviderSet, biz.ProviderSet, service.ProviderSet, job.ProviderSet, listener.ProviderSet, newApp))
 }

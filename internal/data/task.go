@@ -21,14 +21,36 @@ func NewTaskRepository(routerDB *DBRouter, publisher *Publisher) task.Repo {
 }
 
 func (r *TaskRepository) QueryNoSendMessageTaskList(ctx context.Context, dbIndx int) ([]*task.Task, error) {
+	const limit = 10
+
+	db := r.routerDB.GetDB(dbIndx).WithContext(ctx)
+	timeoutAt := time.Now().Add(-6 * time.Minute)
+	columns := []string{"user_id", "topic", "message_id", "message"}
+
 	var tasks []po.Task
-	err := r.routerDB.GetDB(dbIndx).WithContext(ctx).
+	err := db.
+		Select(columns).
 		Where("state = ?", "fail").
-		Or("state = ? AND update_time < ?", "create", time.Now().Add(-6*time.Minute)).
-		Limit(10).
+		Order("update_time ASC, id ASC").
+		Limit(limit).
 		Find(&tasks).Error
 	if err != nil {
 		return nil, err
+	}
+
+	// 失败任务优先补偿，不足时再补充超时未完成的 create 任务，避免 OR 查询影响索引命中。
+	if len(tasks) < limit {
+		var createTasks []po.Task
+		err = db.
+			Select(columns).
+			Where("state = ? AND update_time < ?", "create", timeoutAt).
+			Order("update_time ASC, id ASC").
+			Limit(limit - len(tasks)).
+			Find(&createTasks).Error
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, createTasks...)
 	}
 
 	result := make([]*task.Task, 0, len(tasks))

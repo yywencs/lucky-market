@@ -80,5 +80,5 @@ dcc:
 
 monitor:
   enable: true
-  addr: 0.0.0.0:9091
+  addr: 127.0.0.1:9091
   path: /metrics

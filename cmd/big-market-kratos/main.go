@@ -44,6 +44,7 @@ func newApp(
 	logger log.Logger,
 	gs *grpc.Server,
 	hs *http.Server,
+	metricsSrv *server.MetricsServer,
 	asynqSrv *server.AsynqServer,
 	rmqSrv *server.RabbitMQServer,
 ) *kratos.App {
@@ -56,6 +57,7 @@ func newApp(
 		kratos.Server(
 			gs,
 			hs,
+			metricsSrv,
 			asynqSrv,
 			rmqSrv,
 		),
@@ -125,7 +127,7 @@ func main() {
 		panic("DCC 初始化失败，应用无法启动: " + err.Error())
 	}
 
-	app, cleanup, err := wireApp(bc.Server, bc.Data, bc.Rabbitmq, bc.Asynq, logInstance, dccManager)
+	app, cleanup, err := wireApp(bc.Server, bc.Data, bc.Rabbitmq, bc.Asynq, bc.Monitor, logInstance, dccManager)
 	if err != nil {
 		panic(err)
 	}

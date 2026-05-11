@@ -31,7 +31,7 @@ import (
 // Injectors from wire.go:
 
 // wireApp init kratos application.
-func wireApp(confServer *conf.Server, confData *conf.Data, rabbitMQ *conf.RabbitMQ, asynq *conf.Asynq, logger log.Logger, configGetter dcc.ConfigGetter) (*kratos.App, func(), error) {
+func wireApp(confServer *conf.Server, confData *conf.Data, rabbitMQ *conf.RabbitMQ, asynq *conf.Asynq, monitor *conf.Monitor, logger log.Logger, configGetter dcc.ConfigGetter) (*kratos.App, func(), error) {
 	data_Mysql := data.NewMysqlConfig(confData)
 	db := data.NewDB(data_Mysql)
 	data_Redis := data.NewRedisConfig(confData)
@@ -62,6 +62,7 @@ func wireApp(confServer *conf.Server, confData *conf.Data, rabbitMQ *conf.Rabbit
 	activityService := service.NewActivityService(stockManager, activityPartakeUsecase, activityQuotaUsecase, strategyUsecase, awardUsecase, behaviorRebateUsecase)
 	grpcServer := server.NewGRPCServer(confServer, strategyService, activityService, logger)
 	httpServer := server.NewHTTPServer(confServer, strategyService, activityService, logger, configGetter)
+	metricsServer := server.NewMetricsServer(monitor, logger)
 	activitySkuStockConsumeJob := job.NewActivitySkuStockConsumeJob(activityQuotaUsecase)
 	taskRepo := data.NewTaskRepository(dbRouter, publisher)
 	taskUsecase := task.NewTaskUsecase(taskRepo)
@@ -72,7 +73,7 @@ func wireApp(confServer *conf.Server, confData *conf.Data, rabbitMQ *conf.Rabbit
 	rebateListener := listener.NewRebateListener(activityQuotaUsecase)
 	saveOrderListener := listener.NewSaveOrderListener(activityPartakeUsecase)
 	rabbitMQServer := server.NewRabbitMQServer(connection, activityStockListener, rebateListener, saveOrderListener)
-	app := newApp(logger, grpcServer, httpServer, asynqServer, rabbitMQServer)
+	app := newApp(logger, grpcServer, httpServer, metricsServer, asynqServer, rabbitMQServer)
 	return app, func() {
 	}, nil
 }
