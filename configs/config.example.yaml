@@ -76,3 +76,8 @@ dcc:
   rate_limit: 5                # 限流阈值: 1000 次/秒
   enable_degrade: false           # 降级开关默认关闭
   black_list: ""                  # 黑名单默认为空
+
+monitor:
+  enable: true
+  addr: 127.0.0.1:9091
+  path: /metrics

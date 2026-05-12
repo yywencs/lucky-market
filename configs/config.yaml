@@ -77,8 +77,8 @@ dcc:
   enable_degrade: false           # 降级开关默认关闭
   black_list: ""                  # 黑名单默认为空
 
-
+# 应用只暴露指标端点，Prometheus/Grafana 自身配置在 monitoring/ 目录维护。
 monitor:
   enable: true
-  addr: 127.0.0.1:9091
+  addr: 0.0.0.0:9091
   path: /metrics
