@@ -459,12 +459,33 @@
         {
           "editorMode": "code",
           "expr": "bigmarket_mysql_open_connections",
-          "legendFormat": "{{db_name}}/{{role}}",
+          "legendFormat": "open {{db_name}}/{{role}}",
           "range": true,
           "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "bigmarket_mysql_idle",
+          "legendFormat": "idle {{db_name}}/{{role}}",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "max_over_time(bigmarket_mysql_in_use[5m])",
+          "legendFormat": "in_use max(5m) {{db_name}}/{{role}}",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "editorMode": "code",
+          "expr": "avg_over_time(bigmarket_mysql_in_use[5m])",
+          "legendFormat": "in_use avg(5m) {{db_name}}/{{role}}",
+          "range": true,
+          "refId": "D"
         }
       ],
-      "title": "MySQL Open Connections",
+      "title": "MySQL Pool Status",
       "type": "timeseries"
     },
     {

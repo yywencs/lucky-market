@@ -65,6 +65,7 @@ lerna-debug.log*
 .idea/
 *.swp
 .trae/
+app
 
 
 # test / coverage
